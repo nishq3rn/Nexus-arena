@@ -1,0 +1,15 @@
+{
+  "name": "nexus-arena",
+  "version": "2.4.0",
+  "description": "NEXUS ARENA - Next-Gen Esports Tournament Infrastructure & Competitive Gaming Engine",
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "dev": "npm run dev --prefix backend",
+    "seed": "npm run seed --prefix backend",
+    "seed:destroy": "npm run seed:destroy --prefix backend",
+    "kill-port": "kill -9 $(lsof -ti:5001) 2>/dev/null || true"
+  },
+  "dependencies": {
+    "mongodb": "^7.6.0"
+  }
+}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operative Access Portal // NEXUS ARENA</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div id="ga-navbar"></div>
+
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="nx-card p-4 p-md-5">
+        <div class="nx-card-header-accent mb-4"></div>
+
+        <div class="text-center mb-4">
+          <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle mb-3" style="background: rgba(0, 240, 255, 0.1); border: 1px solid var(--nx-cyan-glow);">
+            <i class="bi bi-shield-lock-fill text-cyan fs-1"></i>
+          </div>
+          <h3 class="text-white fw-black mb-1">OPERATIVE ACCESS</h3>
+          <p class="text-muted font-tactical small mb-0">ENTER REGISTERED CREDENTIALS TO INITIALIZE TERMINAL</p>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <div class="mb-3">
+            <label class="form-label font-tactical text-muted small">COMMUNICATION EMAIL</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-envelope-fill text-cyan"></i></span>
+              <input type="email" class="form-control" id="email" placeholder="operative@nexusarena.gg" required />
+            </div>
+            <div class="invalid-feedback text-rose small">A valid email address is mandatory.</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label font-tactical text-muted small">ACCESS PASSKEY</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-key-fill text-cyan"></i></span>
+              <input type="password" class="form-control" id="password" placeholder="••••••••" required minlength="6" />
+              <button class="btn btn-nx-outline border-start-0" type="button" id="togglePassword">
+                <i class="bi bi-eye-fill text-muted" id="eyeIcon"></i>
+              </button>
+            </div>
+            <div class="invalid-feedback text-rose small">Password must contain at least 6 characters.</div>
+          </div>
+
+          <button type="submit" class="btn btn-nx-cyan btn-lg w-100 justify-content-center" id="loginBtn">
+            <i class="bi bi-box-arrow-in-right"></i> Authenticate Operative
+          </button>
+        </form>
+
+        <div class="text-center mt-4 pt-2 border-top border-secondary border-opacity-25 font-tactical">
+          <span class="text-muted small">LACK OPERATIONAL CLEARANCE?</span>
+          <a href="register.html" class="text-cyan text-decoration-none fw-bold ms-1">ENLIST IN ARENA</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  renderNavbar('login');
+
+  // Password visibility toggle
+  const toggleBtn = document.getElementById('togglePassword');
+  const passwordInput = document.getElementById('password');
+  const eyeIcon = document.getElementById('eyeIcon');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      eyeIcon.className = type === 'password' ? 'bi bi-eye-fill text-muted' : 'bi bi-eye-slash-fill text-cyan';
+    });
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+
+    if (!form.checkValidity()) {
+      form.classList.add('was-validated');
+      return;
+    }
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authenticating...';
+
+    try {
+      const data = await AuthAPI.login({ email, password });
+      Session.setSession(data);
+      showToast(`Access Granted. Welcome back, Operative ${data.name}.`, 'success');
+      setTimeout(() => (window.location.href = 'dashboard.html'), 700);
+    } catch (err) {
+      showToast(err.message, 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> Authenticate Operative';
+    }
+  });
+</script>
+</body>
+</html>

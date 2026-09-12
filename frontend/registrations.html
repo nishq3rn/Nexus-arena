@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roster Verification Hub // NEXUS ARENA</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div id="ga-navbar"></div>
+
+<div class="container my-5">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
+    <div>
+      <a id="backHubLink" href="tournaments.html" class="text-muted text-decoration-none font-tactical small d-block mb-1">
+        <i class="bi bi-arrow-left me-1"></i> BACK TO TOURNAMENT HUB
+      </a>
+      <h2 class="fw-black text-white mb-0"><span class="text-cyan">//</span> ROSTER VERIFICATION HUB</h2>
+      <p class="text-muted font-tactical mb-0" id="tournamentTitleHeader">APPLICANT SCREENING &amp; PARTICIPANT APPROVALS</p>
+    </div>
+    <div id="rosterCountBadge">
+      <span class="nx-badge nx-badge-gold"><i class="bi bi-person-check-fill me-1"></i> ORGANIZER SCREENING</span>
+    </div>
+  </div>
+
+  <!-- Status Filter Chips -->
+  <div class="d-flex flex-wrap gap-2 mb-4" id="statusChips">
+    <span class="nx-filter-chip active" data-status="">All Applicants</span>
+    <span class="nx-filter-chip" data-status="Pending">Pending Review</span>
+    <span class="nx-filter-chip" data-status="Approved">Authorized Contenders</span>
+    <span class="nx-filter-chip" data-status="Rejected">Rejected</span>
+  </div>
+
+  <!-- Applications Table Card -->
+  <div class="nx-card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="text-white font-tactical mb-0"><i class="bi bi-person-lines-fill text-cyan me-2"></i> CANDIDATE ROSTER QUEUE</h5>
+      <span class="text-muted font-tactical small" id="queueStatusLabel">SYNCHRONIZING QUEUE...</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-nexus align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Contender Identity</th>
+            <th>Communication Email</th>
+            <th>Contact / Tag</th>
+            <th>Verification Status</th>
+            <th class="text-end">Roster Action</th>
+          </tr>
+        </thead>
+        <tbody id="registrationsBody">
+          <tr><td colspan="5" class="text-center py-5"><div class="nx-spinner mx-auto"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  requireAuth('organizer');
+  renderNavbar('dashboard');
+
+  const params = new URLSearchParams(window.location.search);
+  const tournamentId = params.get('id');
+  let allRegistrations = [];
+  let currentFilter = '';
+
+  async function init() {
+    if (!tournamentId) {
+      document.getElementById('registrationsBody').innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center text-rose font-tactical py-4">
+            No tournament specified in navigation coordinates.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    document.getElementById('backHubLink').href = `tournament-details.html?id=${tournamentId}`;
+
+    try {
+      const tournament = await TournamentAPI.getById(tournamentId);
+      document.getElementById('tournamentTitleHeader').textContent = `${tournament.name.toUpperCase()} // PARTICIPANT ROSTER`;
+    } catch (e) {}
+
+    await loadRegistrations();
+  }
+
+  async function loadRegistrations() {
+    const tbody = document.getElementById('registrationsBody');
+    try {
+      allRegistrations = await RegistrationAPI.forTournament(tournamentId);
+      renderTable();
+    } catch (err) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center py-4">
+            <div class="text-rose font-tactical mb-2">${err.message}</div>
+            <button class="btn btn-nx-outline btn-sm" onclick="loadRegistrations()"><i class="bi bi-arrow-clockwise me-1"></i> Retry Roster Sync</button>
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('registrationsBody');
+    const filtered = currentFilter 
+      ? allRegistrations.filter(r => r.status === currentFilter) 
+      : allRegistrations;
+
+    document.getElementById('queueStatusLabel').textContent = `${filtered.length} CANDIDATES DISPLAYED`;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center text-muted font-tactical py-5">
+            <i class="bi bi-inbox fs-2 mb-2 d-block text-muted"></i>
+            No candidate registrations found under current filter criteria.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((r) => {
+      const isPending = r.status === 'Pending';
+      return `
+      <tr>
+        <td class="fw-bold text-white fs-6">
+          <i class="bi bi-person-badge text-cyan me-2"></i>${r.player?.name || 'Classified Contender'}
+        </td>
+        <td class="font-tactical text-muted">${r.player?.email || '-'}</td>
+        <td class="font-tactical text-muted">${r.player?.phone || 'N/A'}</td>
+        <td>
+          <span class="nx-badge ${statusBadgeClass(r.status)}">
+            ${r.status === 'Ongoing' || r.status === 'Approved' ? '<i class="bi bi-check2"></i>' : ''} ${r.status}
+          </span>
+        </td>
+        <td class="text-end">
+          ${
+            isPending
+              ? `
+              <div class="btn-group">
+                <button class="btn btn-sm btn-nx-outline text-emerald" onclick="handleAction('${r._id}', 'approve')">
+                  <i class="bi bi-check-circle-fill me-1"></i> Authorize
+                </button>
+                <button class="btn btn-sm btn-nx-danger ms-1" onclick="handleAction('${r._id}', 'reject')">
+                  <i class="bi bi-x-circle-fill me-1"></i> Deny
+                </button>
+              </div>
+              `
+              : `<span class="font-tactical text-muted small">FINALIZED</span>`
+          }
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Filter chip clicks
+  document.querySelectorAll('#statusChips .nx-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#statusChips .nx-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.status;
+      renderTable();
+    });
+  });
+
+  async function handleAction(id, action) {
+    try {
+      if (action === 'approve') await RegistrationAPI.approve(id);
+      else await RegistrationAPI.reject(id);
+      showToast(`Applicant ${action === 'approve' ? 'authorized for tournament roster' : 'denied entry'}.`, 'success');
+      loadRegistrations();
+    } catch (err) {
+      showToast(err.message, 'danger');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

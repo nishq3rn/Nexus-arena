@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hall of Fame & Results // NEXUS ARENA</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div id="ga-navbar"></div>
+
+<div class="container my-5">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
+    <div>
+      <a id="backHubLink" href="tournaments.html" class="text-muted text-decoration-none font-tactical small d-block mb-1">
+        <i class="bi bi-arrow-left me-1"></i> BACK TO TOURNAMENT HUB
+      </a>
+      <h2 class="fw-black text-white mb-0"><span class="text-cyan">//</span> HALL OF FAME &amp; RESULTS</h2>
+      <p class="text-muted font-tactical mb-0" id="tournamentTitleHeader">CERTIFIED CHAMPIONS &amp; FINAL PODIUM</p>
+    </div>
+    <div>
+      <button class="btn btn-nx-cyan d-none" id="publishBtn">
+        <i class="bi bi-megaphone-fill"></i> Certify &amp; Publish Results
+      </button>
+    </div>
+  </div>
+
+  <div id="resultsContainer">
+    <div class="nx-spinner-wrap"><div class="nx-spinner"></div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  renderNavbar('tournaments');
+
+  const params = new URLSearchParams(window.location.search);
+  const tournamentId = params.get('id');
+  const user = Session.getUser();
+  const container = document.getElementById('resultsContainer');
+
+  async function checkOwnerAndShowPublish() {
+    if (!user || user.role !== 'organizer' || !tournamentId) return;
+    try {
+      const tournament = await TournamentAPI.getById(tournamentId);
+      const organizerId = tournament.organizer?._id || tournament.organizer;
+      if (organizerId === user._id && tournament.status !== 'Completed') {
+        document.getElementById('publishBtn').classList.remove('d-none');
+      }
+    } catch (err) { /* ignore */ }
+  }
+
+  async function loadResults() {
+    if (!tournamentId) {
+      container.innerHTML = `
+        <div class="nx-card p-5 text-center mx-auto" style="max-width: 500px;">
+          <i class="bi bi-exclamation-triangle text-rose fs-1 mb-3"></i>
+          <h4 class="text-white">Tournament Undefined</h4>
+          <p class="text-muted small">Please choose an active or completed tournament from the directory.</p>
+        </div>
+      `;
+      return;
+    }
+
+    document.getElementById('backHubLink').href = `tournament-details.html?id=${tournamentId}`;
+
+    try {
+      // Load tournament title
+      try {
+        const tournament = await TournamentAPI.getById(tournamentId);
+        document.getElementById('tournamentTitleHeader').textContent = `${tournament.name.toUpperCase()} // OFFICIAL PODIUM RESULTS`;
+      } catch (e) {}
+
+      const result = await ResultAPI.getResult(tournamentId);
+
+      const podium = `
+        <div class="row g-4 mb-5 align-items-end justify-content-center">
+          <!-- Runner-up (Left) -->
+          <div class="col-md-4 col-sm-6 order-2 order-md-1">
+            <div class="nx-podium-slot nx-podium-2">
+              <div class="nx-crown-icon"><i class="bi bi-award-fill"></i></div>
+              <span class="nx-badge nx-badge-upcoming mb-3 font-tactical">#2 RUNNER-UP</span>
+              <h3 class="text-white fw-bold mb-1">${result.runnerUp ? result.runnerUp.name : 'Unassigned'}</h3>
+              <p class="text-muted font-tactical small mb-0">SILVER LAUREL</p>
+            </div>
+          </div>
+
+          <!-- Champion (Center, Crown) -->
+          <div class="col-md-4 col-sm-6 order-1 order-md-2">
+            <div class="nx-podium-slot nx-podium-1">
+              <div class="nx-crown-icon"><i class="bi bi-trophy-fill"></i></div>
+              <span class="nx-badge nx-badge-gold mb-3 font-tactical fw-bold">★ TOURNAMENT CHAMPION ★</span>
+              <h2 class="display-6 text-white fw-black mb-1">${result.champion ? result.champion.name : 'Unassigned'}</h2>
+              <p class="text-gradient-gold font-tactical fs-5 fw-bold mb-0">GOLDEN CROWN &amp; FIRST PRIZE</p>
+            </div>
+          </div>
+
+          <!-- Third Place (Right) -->
+          <div class="col-md-4 col-sm-6 order-3 order-md-3">
+            <div class="nx-podium-slot nx-podium-3">
+              <div class="nx-crown-icon"><i class="bi bi-shield-shaded"></i></div>
+              <span class="nx-badge nx-badge-completed mb-3 font-tactical">#3 CONTENDER</span>
+              <h3 class="text-white fw-bold mb-1">${result.thirdPosition ? result.thirdPosition.name : 'Unassigned'}</h3>
+              <p class="text-muted font-tactical small mb-0">BRONZE RECOGNITION</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const rankingRows = (result.finalRankings || [])
+        .map((r) => `
+          <tr>
+            <td class="font-orbitron text-cyan fw-bold">#${r.rank}</td>
+            <td class="text-white fw-bold fs-6">
+              <i class="bi bi-person-fill text-muted me-2"></i>${r.player?.name || 'Contender'}
+            </td>
+            <td class="text-end font-orbitron text-gradient-gold fw-bold fs-5">${r.points} PTS</td>
+          </tr>
+        `).join('');
+
+      container.innerHTML = `
+        ${podium}
+        <div class="nx-card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="text-white font-tactical mb-0"><i class="bi bi-card-checklist text-cyan me-2"></i> CERTIFIED FINAL STANDINGS</h5>
+            <span class="nx-badge nx-badge-completed">OFFICIAL ARCHIVE</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-nexus align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Final Rank</th>
+                  <th>Competitor Name</th>
+                  <th class="text-end">Final Points</th>
+                </tr>
+              </thead>
+              <tbody>${rankingRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `
+        <div class="nx-card p-5 text-center mx-auto" style="max-width: 580px;">
+          <i class="bi bi-hourglass-split text-amber fs-1 mb-3 d-block"></i>
+          <h4 class="text-white font-orbitron">Results Pending Certification</h4>
+          <p class="text-muted font-tactical fs-6 mb-3">
+            Official tournament results have not been certified and published by the organizer yet. Check back once final matches conclude.
+          </p>
+          <a href="matches.html?id=${tournamentId}" class="btn btn-nx-outline btn-sm">
+            <i class="bi bi-diagram-3 me-1"></i> View Live Match Schedule
+          </a>
+        </div>
+      `;
+    }
+  }
+
+  document.getElementById('publishBtn').addEventListener('click', async () => {
+    if (!confirm('OFFICIAL CERTIFICATION: Are you sure you wish to publish final results? This will mark the tournament as Completed and finalize rankings.')) return;
+    try {
+      await ResultAPI.publish(tournamentId);
+      showToast('Official tournament results certified and published to the Hall of Fame!', 'success');
+      document.getElementById('publishBtn').classList.add('d-none');
+      loadResults();
+    } catch (err) {
+      showToast(err.message, 'danger');
+    }
+  });
+
+  checkOwnerAndShowPublish();
+  loadResults();
+</script>
+</body>
+</html>
